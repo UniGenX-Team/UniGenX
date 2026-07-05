@@ -1,4 +1,4 @@
-name: sfm
+name: unigenx
 channels:
   - conda-forge
   - pytorch

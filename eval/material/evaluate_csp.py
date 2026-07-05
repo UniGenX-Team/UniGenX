@@ -414,7 +414,7 @@ if __name__ == "__main__":
             min_rmsd = 23333.333333
             for i in range(results.shape[0]):
                 if results[i, j] is not None:
-                    flag = True  
+                    flag = True
                     min_rmsd = min(min_rmsd, results[i, j])
             if flag:
                 match_rates.append(1)

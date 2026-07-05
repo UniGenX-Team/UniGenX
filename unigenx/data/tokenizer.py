@@ -183,12 +183,27 @@ class UniGenXTokenizer(object):
         atom_coordinates = []
         coordinates_index = 0
         for i in range(seq_len):
-            if mask[i] == 1:
+            if mask[i] == 1 or mask[i] == 3:
+                # mask == 3 is the docking ligand coordinate stream (dock/misato)
                 x, y, z = coordinates[coordinates_index]
-                if (entity == "material" or entity == "uni_mat") and coordinates_index < 3:
+                if (
+                    entity == "material" or entity == "uni_mat"
+                ) and coordinates_index < 3:
+                    lattice.append([x, y, z])
+                elif entity == "cond_mat" and coordinates_index < 4:
+                    # cond_mat coordinate stream is [prop_val, lattice x3, atoms...]
+                    # slot 0 is the conditioning value, slots 1-3 the lattice
                     lattice.append([x, y, z])
                 else:
                     atom_coordinates.append([x, y, z])
+                sent.extend(map(str, [x, y, z]))
+                coordinates_index += 1
+            elif mask[i] == 2:
+                # dock: given protein-pocket coordinates; misato: given apo
+                # pocket coordinates. Routed to the "lattice" slot of the
+                # returned tuple (the given-conditioning block).
+                x, y, z = coordinates[coordinates_index]
+                lattice.append([x, y, z])
                 sent.extend(map(str, [x, y, z]))
                 coordinates_index += 1
             else:
@@ -201,6 +216,9 @@ class UniGenXTokenizer(object):
             atom_coordinates = [
                 [x / scale_coords for x in vec] for vec in atom_coordinates
             ]
+            if entity == "dock" or entity == "misato":
+                # the given protein/apo coordinates are scaled too
+                lattice = [[x / scale_coords for x in vec] for vec in lattice]
         return sent, lattice, atom_coordinates
 
     def decode_batch(self, tokens, coordindates, masks, entity="material") -> List[str]:
@@ -217,8 +235,25 @@ class UniGenXTokenizer(object):
             )
             if entity == "material" or entity == "uni_mat":
                 ret.append((sent, lattice, atom_coordinates))
-            elif entity == "mol" or entity == "cond_mol" or entity == "uni_mol":
+            elif entity == "cond_mat":
+                # (sent, cond_val, lattice, atom_coordinates): split the leading
+                # conditioning slot off the lattice list.
+                ret.append((sent, lattice[0], lattice[1:], atom_coordinates))
+            elif (
+                entity == "mol"
+                or entity == "cond_mol"
+                or entity == "uni_mol"
+                or entity == "prot"
+            ):
+                # protein decodes like a molecule: no lattice block, the whole
+                # coordinate stream is per-residue (Cα) atom coordinates.
                 ret.append((sent, atom_coordinates))
+            elif entity == "dock" or entity == "misato":
+                # (sent, lattice, atom_coordinates) where lattice is the given
+                # protein (dock) / apo (misato) pocket coordinate block and
+                # atom_coordinates the generated ligand (dock) or the
+                # holo-pocket + docked-ligand stream (misato).
+                ret.append((sent, lattice, atom_coordinates))
             else:
                 raise ValueError(f"entity {entity} not supported")
             coords_start += num_coords

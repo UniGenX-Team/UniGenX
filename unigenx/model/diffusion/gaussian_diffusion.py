@@ -14,6 +14,7 @@ import torch as th
 from .diffusion_utils import discretized_gaussian_log_likelihood, normal_kl
 from .dpm_solver_pytorch import DPM_Solver, NoiseScheduleVP, model_wrapper
 
+
 def mean_flat(tensor):
     """
     Take the mean over all non-batch dimensions.
@@ -880,7 +881,7 @@ class GaussianDiffusion:
 
         prior_bpd = self._prior_bpd(x_start)
         total_bpd = vb.sum(dim=1) + prior_bpd
-        
+
         return {
             "total_bpd": total_bpd,
             "prior_bpd": prior_bpd,
@@ -888,6 +889,7 @@ class GaussianDiffusion:
             "xstart_mse": xstart_mse,
             "mse": mse,
         }
+
     def dpm_solver_pp_sample(
         self,
         model,
@@ -902,8 +904,8 @@ class GaussianDiffusion:
         model_kwargs=None,
         progress=False,
         temperature=1.0,
-        algorithm_type = "dpmsolver++",
-        solver_type = "dpmsolver",
+        algorithm_type="dpmsolver++",
+        solver_type="dpmsolver",
     ):
         if noise is None:
             if device is None:
@@ -917,8 +919,8 @@ class GaussianDiffusion:
 
         def noise_pred_fn(x, t_continuous, model_kwargs):
             t_input = (t_continuous * (self.num_timesteps - 1)).long()
-            #t_input = (1.0 - t_continuous) * (self.num_timesteps - 1)
-            #t_input = t_input.long() 
+            # t_input = (1.0 - t_continuous) * (self.num_timesteps - 1)
+            # t_input = t_input.long()
             out = self.p_mean_variance(
                 model,
                 x,
@@ -930,16 +932,17 @@ class GaussianDiffusion:
             eps = eps * temperature  # t
 
             return eps
+
         # set noise_scheduleVP
         noise_schedule = NoiseScheduleVP(
             schedule="discrete",
-            alphas_cumprod=th.from_numpy(self.alphas_cumprod).float().to(device),  
+            alphas_cumprod=th.from_numpy(self.alphas_cumprod).float().to(device),
         )
         # model wrapper
         model_fn = model_wrapper(
             noise_pred_fn,
             noise_schedule=noise_schedule,
-            model_type= "noise",  #or x_start?
+            model_type="noise",  # or x_start?
             model_kwargs=model_kwargs,
         )
 
@@ -947,7 +950,7 @@ class GaussianDiffusion:
         dpm_solver = DPM_Solver(
             model_fn,
             noise_schedule,
-            algorithm_type = algorithm_type,
+            algorithm_type=algorithm_type,
             correcting_x0_fn=None,
         )
 
@@ -958,7 +961,7 @@ class GaussianDiffusion:
             order=order,
             skip_type=skip_type,
             method=method,
-            solver_type=solver_type
+            solver_type=solver_type,
         )
         return x_sample
 
@@ -967,7 +970,7 @@ class GaussianDiffusion:
         if "noise" not in kwargs:
             device = kwargs.get("device", next(model.parameters()).device)
             kwargs["noise"] = th.randn(shape, device=device)
-        return self.dpm_solver_pp_sample(model, shape, **kwargs)    
+        return self.dpm_solver_pp_sample(model, shape, **kwargs)
 
 
 def _extract_into_tensor(arr, timesteps, broadcast_shape):
@@ -982,6 +985,5 @@ def _extract_into_tensor(arr, timesteps, broadcast_shape):
     res = th.from_numpy(arr).to(device=timesteps.device)[timesteps].float()
     while len(res.shape) < len(broadcast_shape):
         res = res[..., None]
-    
-    return res + th.zeros(broadcast_shape, device=timesteps.device)
 
+    return res + th.zeros(broadcast_shape, device=timesteps.device)

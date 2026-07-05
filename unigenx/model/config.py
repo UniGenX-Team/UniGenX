@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
+import copy
 import os
 from dataclasses import dataclass
 
 from transformers.models.llama.configuration_llama import LlamaConfig
 
+from unigenx.pipeline.accelerator.dataclasses import (
+    DistributedTrainConfig,
+    TrainStrategy,
+)
+
 
 @dataclass
-class UniGenConfig(LlamaConfig):
+class UniGenXConfig(LlamaConfig, DistributedTrainConfig):
     seed: int = 42
     model_type: str = "threedimargen_100m"
     tokenizer: str = "num"
@@ -40,9 +46,7 @@ class UniGenConfig(LlamaConfig):
     reorder: bool = False
     niggli_reduced: bool = False
 
-    dict_path: str = os.path.join(
-        os.path.dirname(__file__), "../../data/threedimargen_data/dict.txt"
-    )
+    dict_path: str = os.path.join(os.path.dirname(__file__), "../data/dict_mat.txt")
     train_data_path: str = None
     valid_data_path: str = None
     loadcheck_path: str = None
@@ -52,22 +56,45 @@ class UniGenConfig(LlamaConfig):
     ft: bool = False
     infer: bool = False
     # for train
-    mixed_precision : str = "no"
-    wandb : bool = False
+    mixed_precision: str = "no"
+    wandb: bool = False
     train_batch_size: int = 16
     valid_batch_size: int = 16
     total_epochs: int = 10
     total_training_steps: int = -1
-    clip_grad_norm: float = 1.0 
+    clip_grad_norm: float = 1.0
 
     # for tqdm
-    tqdm_interval :int = 1
-    eval_interval :int = 2
-    log_interval :int = 1
-    is_step_log :bool = False
+    tqdm_interval: int = 1
+    eval_interval: int = 2
+    log_interval: int = 1
+    is_step_log: bool = False
 
     # performance parameters
     gradient_accumulate_steps: int = 1
+
+    # ------------------------------------------------------------------ #
+    # Training fields (exact names read by the training engine +
+    # config_optimizer). These are ADDITIVE and pin sensible release
+    # defaults; the remaining engine fields come from DistributedTrainConfig.
+    # The existing inference-compat fields above (total_training_steps,
+    # gradient_accumulate_steps, clip_grad_norm) are intentionally kept.
+    # ------------------------------------------------------------------ #
+    strategy: TrainStrategy = TrainStrategy.Zero1
+    fp16: bool = False
+    bf16: bool = True
+    total_num_steps: int = 1000
+    warmup_num_steps: int = 60
+    gradient_accumulation_steps: int = 1
+    gradient_clipping: float = 1.0
+    save_dir: str = "./checkpoints"
+    save_batch_interval: int = 0
+    val_batch_interval: int = 0
+    calculate_metrics: bool = False
+    ifresume: bool = False
+    load_ckpt: bool = False
+    finetune_from_checkpoint_dir: str = None
+    finetune_from_checkpoint_id: str = None
 
     # optimizer hyperparameters
     optimizer: str = "adamw"
@@ -95,7 +122,7 @@ class UniGenConfig(LlamaConfig):
     is_solver: bool = False
     algorithm_type: str = "dpmsolver++"
     solver_order: int = 2
-    solver_type: str = "dpmsolver" #"midpoint"
+    solver_type: str = "dpmsolver"  # "midpoint"
     solver_steps: int = 20
 
     # for diffloss
@@ -103,15 +130,14 @@ class UniGenConfig(LlamaConfig):
     diff_depth: int = 3
     diff_steps: str = "100"
     diff_mul: int = 4
+    # Learned-sigma variance channels in the diffusion head. True (default) ->
+    # out_channels = target_channels * 2 (6 for xyz), matching all released
+    # checkpoints except mol_qm9.pt (3-channel, learn_sigma=False).
+    # unigenx_infer.py auto-detects this from the checkpoint on load.
+    learn_sigma: bool = True
 
     # diffloss type
     diff_type: str = "diffloss"
-
-    # for edmloss
-    P_mean: float = -1.2
-    P_std: float = 1.2
-    sigma_data: float = 0.5
-    time_model: int = 0  # 0 for ori, 1 for edm, 2 for alphafold
 
     attn_implementation: str = "sdpa"
 
@@ -124,10 +150,10 @@ class UniGenConfig(LlamaConfig):
     target: str = "material"
 
     # for denovo
-    sample_size:int = 20000 
-    top_p:float = None
-    temperature:float = None
-    sample_max_length:int = 25
+    sample_size: int = 20000
+    top_p: float = None
+    temperature: float = None
+    sample_max_length: int = 25
 
     def __init__(
         self,
@@ -135,9 +161,14 @@ class UniGenConfig(LlamaConfig):
     ):
         super().__init__(**kwargs)
 
+    def copy(self):
+        """Deep copy of this config (UnifiedUniGenXDataset forks per-sub-target
+        configs via ``args.copy()``)."""
+        return copy.deepcopy(self)
+
 
 @dataclass
-class UniGenInferenceConfig:
+class UniGenXInferenceConfig:
     input_file: str = None
     output_file: str = None
     infer_batch_size: int = 128
@@ -147,8 +178,9 @@ class UniGenInferenceConfig:
     space_group: bool = True
     sample: bool = False
 
+
 @dataclass
-class UniGenInferencedenovoConfig:
+class UniGenXInferencedenovoConfig:
     input_file: str = None
     output_file: str = None
     infer_batch_size: int = 128
@@ -162,7 +194,8 @@ class UniGenInferencedenovoConfig:
     temperature: float = 0.75
     top_p: float = 0.95
 
-def UniGen_tiny_config(config: UniGenConfig):
+
+def UniGenX_tiny_config(config: UniGenXConfig):
     # just for debug
     config.hidden_size = 1024
     config.intermediate_size = 4096
@@ -172,7 +205,7 @@ def UniGen_tiny_config(config: UniGenConfig):
     return config
 
 
-def UniGen_base_config(config: UniGenConfig):
+def UniGenX_base_config(config: UniGenXConfig):
     config.hidden_size = 1024
     config.intermediate_size = 4096
     config.num_hidden_layers = 24
@@ -181,7 +214,7 @@ def UniGen_base_config(config: UniGenConfig):
     return config
 
 
-def UniGen_200m_config(config: UniGenConfig):
+def UniGenX_200m_config(config: UniGenXConfig):
     config.hidden_size = 1024
     config.intermediate_size = 4096
     config.num_hidden_layers = 12
@@ -190,7 +223,7 @@ def UniGen_200m_config(config: UniGenConfig):
     return config
 
 
-def UniGen_100m_config(config: UniGenConfig):
+def UniGenX_100m_config(config: UniGenXConfig):
     config.hidden_size = 1024
     config.intermediate_size = 4096
     config.num_hidden_layers = 6
@@ -198,7 +231,8 @@ def UniGen_100m_config(config: UniGenConfig):
     config.num_key_value_heads = 16
     return config
 
-def UniGen_800m_config(config: UniGenConfig):
+
+def UniGenX_800m_config(config: UniGenXConfig):
     config.hidden_size = 1280
     config.intermediate_size = 5120
     config.num_hidden_layers = 32
@@ -206,7 +240,8 @@ def UniGen_800m_config(config: UniGenConfig):
     config.num_key_value_heads = 20
     return config
 
-def UniGen_1_6_b_config(config: UniGenConfig):
+
+def UniGenX_1_6_b_config(config: UniGenXConfig):
     config.hidden_size = 2048
     config.intermediate_size = 8192
     config.num_hidden_layers = 24
@@ -215,7 +250,7 @@ def UniGen_1_6_b_config(config: UniGenConfig):
     return config
 
 
-def UniGen_3_3_b_config(config: UniGenConfig):
+def UniGenX_3_3_b_config(config: UniGenXConfig):
     config.hidden_size = 2560
     config.intermediate_size = 10240
     config.num_hidden_layers = 32

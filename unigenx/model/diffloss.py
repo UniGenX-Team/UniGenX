@@ -19,18 +19,20 @@ class DiffLoss(nn.Module):
         width,
         num_sampling_steps,
         grad_checkpointing=False,
-        is_solver = False,
-        dpm_num_sampling_steps = 20,
-        dpm_order = 2,
-        algorithm_type = "dpmsolver++",
-        solver_type = "dpmsolver",
+        is_solver=False,
+        dpm_num_sampling_steps=20,
+        dpm_order=2,
+        algorithm_type="dpmsolver++",
+        solver_type="dpmsolver",
+        learn_sigma=True,
     ):
         super(DiffLoss, self).__init__()
         self.in_channels = target_channels
+        self.learn_sigma = learn_sigma
         self.net = SimpleMLPAdaLN(
             in_channels=target_channels,
             model_channels=width,
-            out_channels=target_channels * 2,  # for vlb loss
+            out_channels=target_channels * (2 if learn_sigma else 1),  # *2 for vlb loss
             z_channels=z_channels,
             num_res_blocks=depth,
             grad_checkpointing=grad_checkpointing,
@@ -45,10 +47,12 @@ class DiffLoss(nn.Module):
         self.train_diffusion = create_diffusion(
             timestep_respacing="",
             noise_schedule="cosine",
+            learn_sigma=learn_sigma,
         )
         self.gen_diffusion = create_diffusion(
             timestep_respacing=num_sampling_steps,
             noise_schedule="cosine",
+            learn_sigma=learn_sigma,
         )
 
     def forward(self, target, z, weight=None):
@@ -73,30 +77,30 @@ class DiffLoss(nn.Module):
         model_kwargs = dict(c=z)
         sample_fn = self.net.forward
         ## modify for dpm solver ##
-        if self.is_solver :
-            sampled_token_latent = self.gen_diffusion.dpm_solver_pp_sample_loop( 
-                model = sample_fn,
-                shape = noise.shape,
-                noise = noise,
+        if self.is_solver:
+            sampled_token_latent = self.gen_diffusion.dpm_solver_pp_sample_loop(
+                model=sample_fn,
+                shape=noise.shape,
+                noise=noise,
                 clip_denoised=False,
                 model_kwargs=model_kwargs,
                 progress=False,
                 temperature=temperature,
                 steps=self.dpm_num_sampling_steps,
                 order=self.dpm_order,
-                algorithm_type = self.algorithm_type,
-                solver_type = self.solver_type
+                algorithm_type=self.algorithm_type,
+                solver_type=self.solver_type,
             )
-        else :
-            sampled_token_latent = self.gen_diffusion.p_sample_loop( 
-                model = sample_fn,
-                shape = noise.shape,
-                noise = noise,
+        else:
+            sampled_token_latent = self.gen_diffusion.p_sample_loop(
+                model=sample_fn,
+                shape=noise.shape,
+                noise=noise,
                 clip_denoised=False,
                 model_kwargs=model_kwargs,
                 progress=False,
                 temperature=temperature,
-            )   
+            )
 
         return sampled_token_latent
 

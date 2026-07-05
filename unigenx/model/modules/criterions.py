@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-from torch import nn
 from dataclasses import dataclass
-from typing import Optional,Dict
-from unigenx.logging import logger
+from typing import Dict, Optional
+
 import torch
+from torch import nn
+
+from unigenx.logging import logger
+
 
 @dataclass
 class ModelOutput:
@@ -12,6 +15,7 @@ class ModelOutput:
     log_output: Optional[Dict] = None
     logits: Optional[torch.Tensor] = None
     label: Optional[torch.Tensor] = None
+
 
 class CrystalCriterions(nn.Module):
     def __init__(self, vocab_size, reduction="mean") -> None:
@@ -54,8 +58,11 @@ class CrystalCriterions(nn.Module):
         # if label_coordinates.dtype != y_0.dtype:
         #     label_coordinates = label_coordinates.to(y_0.dtype)
         # loss_coord = self.pos_loss(y_0, label_coordinates)
-        # Combine losses
-        loss = loss_words + 100 * loss_coord
+        # Combine losses (sequence-only targets, e.g. ecnum, have no coord loss)
+        if loss_coord is not None:
+            loss = loss_words + 100 * loss_coord
+        else:
+            loss = loss_words
         loss_log = {
             "loss": loss.item() if loss is not None else None,
             "loss_words": loss_words.item() if loss_words is not None else None,
@@ -66,4 +73,3 @@ class CrystalCriterions(nn.Module):
         model_output.num_examples = bs
         model_output.log_output = loss_log
         return model_output
-

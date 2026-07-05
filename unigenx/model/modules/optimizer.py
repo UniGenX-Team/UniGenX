@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 
 from typing import Callable, List, Optional, Tuple
+
 from unigenx.logging import logger
 
 try:
@@ -17,6 +19,7 @@ except:
     logger.info("apex is not installed, using pytorch AdamW with fp32 optimizer states")
     from ...utils.adam import AdamW
 
+
 def split_param_and_layer_name(name_list: List[str]) -> Tuple[List[str], List[int]]:
     param_list = []
     layer_name_list = []
@@ -29,6 +32,7 @@ def split_param_and_layer_name(name_list: List[str]) -> Tuple[List[str], List[in
             raise ValueError(f"Invalid name type: {type(name)}")
 
     return param_list, layer_name_list
+
 
 def process_param(
     net,
@@ -92,6 +96,7 @@ def process_param(
 
     return param_groups
 
+
 def process_parm_list(param_list: str = None):
     if not param_list:
         return []
@@ -104,6 +109,7 @@ def process_parm_list(param_list: str = None):
             if name:
                 ret.append(name)
     return ret
+
 
 def myAdamW(
     net,

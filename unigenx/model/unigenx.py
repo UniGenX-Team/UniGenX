@@ -75,9 +75,9 @@ class UniGenX(LlamaForCausalLM):
     def __init__(self, config):
         super().__init__(config)
         self.coordinate_encoder = MLP(3, config.hidden_size, config.hidden_size)
-        print("config.is_solver:",config.is_solver)
-        print("config.solver_order:",config.solver_order)
-        print("config.solver_type:",config.solver_type)
+        print("config.is_solver:", config.is_solver)
+        print("config.solver_order:", config.solver_order)
+        print("config.solver_type:", config.solver_type)
         self.diffloss = DiffLoss(
             target_channels=3,
             z_channels=config.hidden_size,
@@ -86,10 +86,11 @@ class UniGenX(LlamaForCausalLM):
             num_sampling_steps=config.diff_steps,
             grad_checkpointing=False,
             is_solver=config.is_solver,
-            dpm_num_sampling_steps = config.solver_steps,
-            dpm_order = config.solver_order,
-            solver_type = config.solver_type,
-            algorithm_type = config.algorithm_type
+            dpm_num_sampling_steps=config.solver_steps,
+            dpm_order=config.solver_order,
+            solver_type=config.solver_type,
+            algorithm_type=config.algorithm_type,
+            learn_sigma=getattr(config, "learn_sigma", True),
         )
         self.diffusion_batch_mul = config.diff_mul
         self.post_init()
@@ -168,7 +169,11 @@ class UniGenX(LlamaForCausalLM):
         # coordinates = self.coordinate_decoder(hidden_states)
 
         # diffussion process
-        if self.training or coordinates.shape[1] != 1:
+        if (
+            (self.training or coordinates.shape[1] != 1)
+            and coordinates_mask is not None
+            and input_coordinates is not None
+        ):
             # shift so that tokens < n predict n
             y = input_coordinates
             shift_coordinates_mask = coordinates_mask[:, 1:].contiguous()
@@ -185,6 +190,7 @@ class UniGenX(LlamaForCausalLM):
         else:
             # noise = self.diffusion.get_noise()
             y_0 = None
+            diffloss = None
 
         if not return_dict:
             output = (word_logits, coordinates, y_0) + outputs[1:]
@@ -199,6 +205,7 @@ class UniGenX(LlamaForCausalLM):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
     @torch.no_grad()
     def sample(
         self,

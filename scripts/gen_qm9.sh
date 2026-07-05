@@ -25,5 +25,5 @@ else
     --diff_steps 200 \
     --target mol \
     --is_solver \
-    --solver_order 2   
+    --solver_order 2
 fi

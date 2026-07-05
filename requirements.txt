@@ -1,7 +1,17 @@
---no-index
+# PyG C++ extension wheels -- must match the installed PyTorch + CUDA build.
+# They are served from the PyG wheel index as local-versioned wheels
+# (e.g. torch_scatter-*+pt23cu121-*), which pip prefers over the PyPI sdists,
+# so PyG still resolves to the matched wheels here. Change the URL if your
+# torch / CUDA differs (this one is torch 2.3.0 + CUDA 12.1).
 --find-links https://data.pyg.org/whl/torch-2.3.0+cu121.html
 pyg-lib
 torch-scatter
 torch-sparse
 torch-cluster
 
+# MISATO protein-ligand docking I/O (the --target misato path in both
+# unigenx_infer.py and unigenx_train.py reads the .hdf5 pockets via h5py and maps
+# atomic numbers via periodictable). Both are lazily imported, so they are only
+# needed for the misato docking path.
+h5py
+periodictable

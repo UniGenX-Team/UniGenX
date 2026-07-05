@@ -26,4 +26,3 @@ else
     --target material \
     --diff_steps 200
 fi
-

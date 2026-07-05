@@ -84,9 +84,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.threshold == 0.5:
-        rdkit_pkl = "" # input qm9 pickle
+        rdkit_pkl = ""  # input qm9 pickle
     else:
-        rdkit_pkl = "" # input drugs pickle
+        rdkit_pkl = ""  # input drugs pickle
     with open(rdkit_pkl, "rb") as f:
         test_dict = pickle.load(f)
     with open(args.input, "r") as f:
