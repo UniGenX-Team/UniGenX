@@ -99,33 +99,34 @@ in `requirements.txt` but imported lazily.
 
 ## Quick start
 
-An end-to-end small-molecule (GEOM-QM9) generation run:
+An end-to-end MP-20 crystal structure prediction (CSP) run:
 
-1. Download the `mol_qm9` checkpoint and prepare a QM9 input `.jsonl` (see
-   [Data formats](#data-formats)).
-2. Edit the top of `scripts/gen_qm9.sh` and set the two blank variables:
+1. Download the `csp_mp20` checkpoint and prepare an MP-20 input `.jsonl` (see
+   [Data formats](#data-formats)). Each record should carry the crystal formula,
+   lattice, and sites.
+2. Edit the top of `scripts/gen_mat.sh` and set the two blank variables:
 
    ```bash
-   CKPT=/path/to/mol_qm9.pt      # the downloaded checkpoint
-   INPUT=/path/to/qm9_input.jsonl
+   CKPT=/path/to/csp_mp20.pt      # the downloaded checkpoint
+   INPUT=/path/to/mp20_input.jsonl
    ```
 
 3. Run it:
 
    ```bash
-   bash scripts/gen_qm9.sh
+   bash scripts/gen_mat.sh
    ```
 
-The script wraps `python unigenx_infer.py` (with `--target mol`,
-`--dict_path unigenx/data/dict_qm9.txt`, and the DPM-Solver flags) and writes
-`<ckpt>_<input>.jsonl` next to the checkpoint — one record per input with a
-`"prediction"` field added, holding the sampled coordinates (and, where
-relevant, the sampled sequence / lattice).
+The script wraps `python unigenx_infer.py` with `--target material`,
+`--dict_path unigenx/data/dict_mat.txt`, `--no_space_group`, and
+`--diff_steps 200`. It writes `<ckpt>_<input>.jsonl` next to the checkpoint —
+one record per input with a `"prediction"` field added, holding the sampled
+lattice and fractional atom coordinates.
 
 4. Score the output:
 
    ```bash
-   python eval/molecule/evaluate_mol.py --input <ckpt>_<input>.jsonl --threshold 0.5 --output metrics.txt
+   python eval/material/evaluate_csp.py <ckpt>_<input>.jsonl --multiple True --output metrics.txt
    ```
 
 ## Pretrained checkpoints
