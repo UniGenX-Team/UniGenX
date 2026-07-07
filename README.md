@@ -101,20 +101,19 @@ in `requirements.txt` but imported lazily.
 
 An end-to-end MP-20 crystal structure prediction (CSP) run:
 
-1. Download the `csp_mp20` checkpoint and prepare an MP-20 input `.jsonl` (see
-   [Data formats](#data-formats)). Each record should carry the crystal formula,
-   lattice, and sites.
-2. Edit the top of `scripts/gen_mat.sh` and set the two blank variables:
+1. Download the `csp_mp20` checkpoint. The repo includes a tiny MP-20 input at
+   `examples/data/mp20_10.jsonl`, so you do not need to prepare data just to
+   smoke-test the pipeline.
+2. Run the launcher with `CKPT=` set:
 
    ```bash
-   CKPT=/path/to/csp_mp20.pt      # the downloaded checkpoint
-   INPUT=/path/to/mp20_input.jsonl
+   CKPT=/path/to/csp_mp20.pt bash scripts/gen_mat.sh
    ```
 
-3. Run it:
+   If `python` is not on your shell `PATH`, pass the interpreter explicitly:
 
    ```bash
-   bash scripts/gen_mat.sh
+   CKPT=/path/to/csp_mp20.pt PYTHON=/path/to/python bash scripts/gen_mat.sh
    ```
 
 The script wraps `python unigenx_infer.py` with `--target material`,
@@ -157,13 +156,24 @@ no saved `args` and cannot be driven through `unigenx_infer.py` as-is** — trai
 ## Generation
 
 Every task has a launcher under `scripts/`. Each is a thin wrapper around
-`python unigenx_infer.py`; edit the top of the script to set `CKPT=` (path to
-the `.pt`) and `INPUT=` (path to the input data), then run it. They ship with
-`CKPT=`/`INPUT=` intentionally blank.
+`python unigenx_infer.py`; set `CKPT=` to the path of the downloaded `.pt`
+before running it. The material, Drugs, and protein launchers already default
+to tiny example inputs under `examples/data/`; override `INPUT=` only when you
+want to run your own data.
 
 Output: each script writes `<ckpt>_<input>.jsonl` next to the checkpoint, one
 record per input with a `"prediction"` field added (predicted coordinates and,
 where relevant, the sampled sequence / lattice).
+
+### Example inputs
+
+Small public smoke-test inputs are committed for the three major domains:
+
+| File | Domain | Default launcher |
+|---|---|---|
+| `examples/data/mp20_10.jsonl` | MP-20 crystals, 10 records | `scripts/gen_mat.sh` |
+| `examples/data/drugs_10.jsonl` | GEOM-Drugs molecules, 10 distinct SMILES | `scripts/gen_drugs.sh` |
+| `examples/data/protein_md_2.jsonl` | DESRES fast-folding MD proteins, 2 records | `scripts/gen_prot.sh` |
 
 | Script | `--target` | Dictionary (vocab) | Checkpoints | Notes |
 |---|---|---|---|---|
@@ -304,15 +314,17 @@ their own per-domain tokenization and interleaved for mixed training. A single
 
 ## Data formats
 
-Per-target on-disk schema for the **training** readers (`get_train_item_*`);
-the inference readers accept the same records. Prepare these yourself — the
-preprocessing pipelines are not shipped.
+Per-target on-disk schema for the **training** readers (`get_train_item_*`).
+The inference readers accept the same records, but several targets only consume
+a subset of those fields at generation time. Prepare full records when you want
+to run the matching evaluators, because the evaluators use the reference
+structure / conformer fields.
 
 | `--target` | Input | Record fields |
 |---|---|---|
-| `material`, `uni_mat` | jsonl or `.pkl` list | `id`, `formula`, `lattice` (3×3), `sites` = [{`element`, `fractional_coordinates`}]. jsonl records are normalized + site-sorted; `.pkl` records are taken as-is; space group is not consumed. |
-| `mol`, `uni_mol` | LMDB (pickle), or jsonl / `.pkl` | `id`, `smi`, `pos` = [[x, y, z] per atom]. `num` (atom count) is only used for jsonl length filtering. |
-| `prot` | LMDB (zlib+pickle), or `.pkl` / jsonl | `aa` (sequence), `pos` = [[x, y, z] per residue Cα]. Coordinates are mean-centered; no ESM embeddings. |
+| `material`, `uni_mat` | jsonl or `.pkl` list | `id`, `formula`, `lattice` (3×3), `sites` = [{`element`, `fractional_coordinates`}]. Training jsonl records are normalized + site-sorted; inference preserves input order. Space group is not consumed. |
+| `mol`, `uni_mol` | LMDB (pickle), or jsonl / `.pkl` | Training uses `id`, `smi`, `pos` = [[x, y, z] per atom], and `num`. Inference requires `id`, `smi`, and `num`; `num` sets the number of generated coordinate slots and should match `len(pos)` when `pos` is present. |
+| `prot` | LMDB (zlib+pickle), or `.pkl` / jsonl | Training uses `aa` (sequence) and `pos` = [[x, y, z] per residue Cα]. Inference requires `seq` or `aa`; `coords` / `pos` are optional reference fields and are not consumed by generation. No ESM embeddings. |
 | `cond_mat` | jsonl / `.pkl` | material fields + `property` = **dict** (keys matched by `dft_(.*?)_`, values log-transformed). **Inference instead uses flat `prop` (str) + `prop_val` (scalar)** — the keys differ, so prepare each for its own stage. |
 | `cond_mol` | LMDB, or jsonl / `.pkl` | mol fields + `prop` = **list**[property-name str] and `prop_val` = **list**[scalar] (parallel lists, one entry per conditioned property). |
 | `dock` | Directory of LMDB sub-databases | whichever of `pockets/{split}.lmdb`, `ligands/{split}.lmdb`, `crossdocked...final.lmdb`, `protein_ligand_binding_pose_prediction/{split}.lmdb` exist; split maps TRAIN→train / VAL→valid / INFER→test. |
@@ -335,8 +347,7 @@ python -m pytest tests/ -q   # import / config round-trip / dict-vocab / collati
 ```
 
 The test suite runs without any checkpoint or private data present; tests that
-need a real checkpoint or a GPU skip automatically. See [`CLAUDE.md`](CLAUDE.md)
-for architecture / developer notes.
+need a real checkpoint or a GPU skip automatically.
 
 ## Citation
 
@@ -369,5 +380,3 @@ Additional notes:
 - **Using the wrong dictionary can silently generate garbage** even when the
   vocab sizes coincide, so the generation scripts hard-code the correct
   `--dict_path`; do not change it.
-</content>
-</invoke>

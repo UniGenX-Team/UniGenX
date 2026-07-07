@@ -1,4 +1,6 @@
-#Please fill in your data path in the vacant code line below
+# Fill CKPT with the downloaded checkpoint path. INPUT defaults to two fast-
+# folding MD examples committed under examples/data/ so the pipeline can run
+# immediately after the checkpoint is available.
 # Protein-backbone (Cα) conformation generation (target prot).
 # checkpoints: 1_m_p..12_m_p / b_p / e_bs / e_wo_bs (all vocab 28).
 #
@@ -12,29 +14,41 @@
 # reference inference script. INPUT is a .jsonl/.lmdb with per-record protein
 # sequences ("seq"/"aa"); the generated coordinates are written to
 # prediction.coordinates (a list of the 5 sampled conformations).
-CKPT=
+CKPT=${CKPT:-}
+INPUT=${INPUT:-examples/data/protein_md_2.jsonl}
+PYTHON_BIN=${PYTHON:-python}
 
-CKPT_FOLDER=$(dirname $CKPT)
-CKPT_NAME=$(basename $CKPT)
+if [ -z "${CKPT}" ]; then
+    echo "Set CKPT=/path/to/1_m_p.pt before running this script." >&2
+    exit 1
+fi
+if [ ! -f "${CKPT}" ]; then
+    echo "Checkpoint not found: ${CKPT}" >&2
+    exit 1
+fi
+if [ ! -f "${INPUT}" ]; then
+    echo "Input file not found: ${INPUT}" >&2
+    exit 1
+fi
 
-INPUT=
-
-INPUT_FNAME=$(basename $INPUT)
+CKPT_FOLDER=$(dirname "${CKPT}")
+CKPT_NAME=$(basename "${CKPT}")
+INPUT_FNAME=$(basename "${INPUT}")
 OUTPUT=${CKPT_FOLDER}/${CKPT_NAME%.*}_${INPUT_FNAME%.*}.jsonl
 
-if [ -f ${OUTPUT} ]; then
-    rm ${OUTPUT}
+if [ -f "${OUTPUT}" ]; then
+    rm "${OUTPUT}"
 fi
-if [ -f ${OUTPUT} ]; then
+if [ -f "${OUTPUT}" ]; then
     echo "Output file ${OUTPUT} already exists. Skipping."
 else
-    python unigenx_infer.py \
+    "${PYTHON_BIN}" unigenx_infer.py \
     --dict_path unigenx/data/dict_prot.txt \
-    --loadcheck_path ${CKPT} \
+    --loadcheck_path "${CKPT}" \
     --tokenizer num \
     --infer --infer_batch_size 1 \
-    --input_file ${INPUT} \
-    --output_file ${OUTPUT} \
+    --input_file "${INPUT}" \
+    --output_file "${OUTPUT}" \
     --verbose \
     --target prot \
     --diff_steps 200
