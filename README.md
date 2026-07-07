@@ -363,20 +363,6 @@ If you use UniGenX, please cite the paper.
 }
 ```
 
-## License and notes
+## License
 
-Released under the MIT License (Copyright (c) Microsoft Corporation); see
-[`LICENSE`](LICENSE). Some evaluators wrap external programs that you install
-separately — for example `eval/protein/protein_evaluation/` drives the external
-LGA / TM-score / US-align binaries used for CASP / CAMEO scoring (see
-[Installation](#installation) for the per-domain optional dependencies).
-
-Additional notes:
-
-- **Model architecture flags are read from the checkpoint**, not the CLI (see
-  the sampler note under [Generation](#generation)).
-- **Protein-MD checkpoints are the baseline sequence-token architecture** and do
-  **not** consume ESM-2 embeddings.
-- **Using the wrong dictionary can silently generate garbage** even when the
-  vocab sizes coincide, so the generation scripts hard-code the correct
-  `--dict_path`; do not change it.
+Released under the MIT License; see [`LICENSE`](LICENSE).
