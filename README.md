@@ -351,15 +351,15 @@ need a real checkpoint or a GPU skip automatically.
 
 ## Citation
 
-If you use UniGenX, please cite the paper. **This BibTeX entry is a placeholder —
-fill in the authors, venue/arXiv identifier, and year before use.**
+If you use UniGenX, please cite the paper.
 
 ```bibtex
-@article{unigenx,
-  title   = {UniGenX: <fill in the full paper title>},
-  author  = {<fill in authors>},
-  journal = {<fill in venue / arXiv id>},
-  year    = {<fill in year>}
+@article{zhang2025unigenx,
+  title={UniGenX: unified generation of sequence and structure with autoregressive diffusion},
+  author={Zhang, Gongbo and Li, Yanting and Luo, Renqian and Hu, Pipi and Zhao, Zeru and Li, Lingbo and Liu, Guoqing and Wang, Zun and Bi, Ran and Gao, Kaiyuan and others},
+  journal={arXiv e-prints},
+  pages={arXiv--2503},
+  year={2025}
 }
 ```
 
